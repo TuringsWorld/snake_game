@@ -1,11 +1,13 @@
 import pygame, sys
 from pygame.locals import *
 from random import *
-import numpy as np # q learning bit
+import numpy as np # for q learning
 import time, copy
 
-AI = False
-VISUAL_GAME = True
+AI = True
+VISUAL_GAME = False # Only for Player (Not AI)
+assert not (VISUAL_GAME and AI), "If AI is turned on then VISUAL_GAME must be False"
+
 
 #import os
 #os.environ["SDL_VIDEODRIVER"] = "dummy"
@@ -112,13 +114,14 @@ def print_display_surf(episode_num=None):
     #print(DISPLAYSURF)
     print("============================================")
 
-def text_to_visual(textBoard, first_time, score):
+def text_to_visual(textBoard, first_time, score, gameover=False):
     #global DISPLAYSURF
     if first_time:
         pygame.init()
         clock = pygame.time.Clock()
     DISPLAYSURF = pygame.display.set_mode((10 * WIDTH, 10 * HEIGHT), 0, 32)
     pygame.display.set_caption('Shane Snake Game - Score: {}'.format(score))
+
     DISPLAYSURF.fill(WHITE)
     for index_height, y in enumerate(textBoard):
         for index_width, x in enumerate(y):
@@ -129,7 +132,10 @@ def text_to_visual(textBoard, first_time, score):
             elif x == "$":
                 foodRect = Rect(index_width * 10, index_height * 10, 10, 10)
                 pygame.draw.rect(DISPLAYSURF, GREEN, foodRect, 0)
-                pygame.draw.rect(DISPLAYSURF, BLACK, foodRect, 1)                                    
+                pygame.draw.rect(DISPLAYSURF, BLACK, foodRect, 1)  
+    if gameover:
+        DISPLAYSURF.fill(RED)
+        FinalText('Game Over! Your score was {}'.format(score), ui=True, disp=DISPLAYSURF)                               
     pygame.display.update()
 
 
@@ -234,17 +240,17 @@ def changeFood():
         #print(foundFoodSpot)
     
 
-def TextObjects(text, font):
-    assert(VISUAL_GAME)
+def TextObjects(text, font, ui=VISUAL_GAME):
+    assert(ui)
     textSurface = font.render(text, True, BLACK)
     return textSurface, textSurface.get_rect()
 
-def FinalText(text):
-    if VISUAL_GAME:
+def FinalText(text, ui=VISUAL_GAME, disp=DISPLAYSURF):
+    if ui:
         largeText = pygame.font.Font('freesansbold.ttf',20)
-        TextSurf, TextRect = TextObjects(text, largeText)
+        TextSurf, TextRect = TextObjects(text, largeText, ui=ui)
         TextRect.center = ((displayWidth/2),(displayHeight/2))
-        DISPLAYSURF.blit(TextSurf, TextRect)
+        disp.blit(TextSurf, TextRect)
     else:
         print('========================================')
         print('=========       GAME OVER      =========')
@@ -318,6 +324,7 @@ def get_states_easier(): # QL
     else:
         food_right, food_below = 0, 0
 
+
     danger_right = 1 if snakeHead["x"] == 39 else 0
     danger_left = 1 if snakeHead["x"] == 0 else 0
     danger_above = 1 if snakeHead["y"] == 0 else 0
@@ -348,7 +355,7 @@ q_table = np.load(r'C:\Users\Shane Yo\Documents\Coding Projects\Python\pygame\le
 LEARNING_RATE = 0.1
 DISCOUNT = 0.995
 EPISODES = 25000
-SHOW_EVERY = 1
+SHOW_EVERY = 10
 
 epsilon = 0.009
 START_EPSILON_DECAY = 1
@@ -556,11 +563,12 @@ def simulation_gameLoop():
     #print_display_surf()
     for episode in range(EPISODES):
         print(f"EPISODE: {episode + 1} of {EPISODES}")
-        render = (episode % SHOW_EVERY == 0) #or (episode > 12500)
+        render = (episode % SHOW_EVERY == 0) if SHOW_EVERY else False #or (episode > 12500)
         #render = True if episode > 7500 else render
         #how_long_collided = 0
         counter = 0
         prev_epsilon = copy.deepcopy(epsilon)
+        first_time = True
         while True: # main simulation game loop
             reward = 0
             discrete_state = get_states_easier()
@@ -667,13 +675,16 @@ def simulation_gameLoop():
                     #q_table[discrete_state + (current_action,)] -= 5
                     continue               
             else:
-                #FinalText('Game Over! Your score was {}'.format(score))
                 print(f"Game Over! Your score was {score}")
+                if render:
+                    text_to_visual(DISPLAYSURF, first_time, score, gameover=True)
                 reset(render)
                 break
                     
             if render:
                 print_display_surf(episode)
+                text_to_visual(DISPLAYSURF, first_time, score)
+                first_time = False
         print(f"epsilon: {epsilon}")
         print(counter)
         print(MAX_SCORE)
@@ -695,7 +706,7 @@ def simulation():
     
             new_discrete_state = get_discrete_state(new_state)
     
-            if episode % SHOW_EVERY == 0:
+            if SHOW_EVERY and episode % SHOW_EVERY == 0:
                 env.render()
             #new_q = (1 - LEARNING_RATE) * current_q + LEARNING_RATE * (reward + DISCOUNT * max_future_q)
     
