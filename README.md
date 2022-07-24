@@ -5,5 +5,7 @@ Work in progress but you can watch the current AI if you simply run snake3.py. (
 
 
 CURRENT STATUS: Completed Q-Learning that performs better than a human
+
+
 TODO: See if there is any improvement with Deep Q-Learning
 
